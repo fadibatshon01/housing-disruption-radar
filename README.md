@@ -35,3 +35,13 @@ A **Disruption Event** is flagged when the composite Housing Pressure Index exce
 - ⚠️ Flags high-risk periods based on thresholds  
 - 📋 Displays raw data and flagged dates  
 - 📊 Built-in regression analysis (Housing Starts ~ Mortgage Rate + Home Prices)
+
+## 🤝 Contributing
+- Pull requests are welcome. If you’d like to propose new indicators, visualization styles, or forecasting tools, feel free to fork the project and submit a PR.
+📬 Contact
+
+## Created by Fadi Batshon
+- 📧 fbatshon@ucsd.edu | 🌐 LinkedIn
+
+## 🧠 Inspiration
+- Built as part of a real-time market analysis project using open economic data, Python, and public cloud tools. Inspired by the need to democratize economic awareness and make macro indicators visually accessible.
