@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import streamlit as st  # ← make sure this is here
 
 # ─── Setup ────────────────────────────────────────────────────────────────────────
-+ BASE     = os.path.abspath(os.path.dirname(__file__))
+BASE = os.path.abspath(os.path.dirname(__file__))
 DATA_DIR = os.path.join(BASE, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
