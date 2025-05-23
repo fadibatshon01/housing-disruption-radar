@@ -2,9 +2,6 @@
 
 **Real-time insights into pressure points in the U.S. housing market.**  
 Powered by Streamlit, FRED, and economic modeling.
-
-![Streamlit Screenshot](https://user-images.githubusercontent.com/your-screenshot.png) <!-- Optional if you add one -->
-
 ---
 
 ## 🔍 Overview
