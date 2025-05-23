@@ -10,7 +10,10 @@ import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
-import streamlit as st  # ← make sure this is here
+import streamlit as st
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
 
 # ─── Setup ────────────────────────────────────────────────────────────────────────
 BASE = os.path.abspath(os.path.dirname(__file__))
@@ -24,9 +27,6 @@ st.set_page_config(page_title="Housing Disruption Radar", layout="wide")
 
 # ─── Data‐fetching Helpers ─────────────────────────────────────────────────────────
 def fetch_fred(series_id: str) -> pd.DataFrame:
-    """
-    Download a FRED series as CSV and return a DataFrame indexed by Date.
-    """
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
     with urllib.request.urlopen(url, context=CTX) as resp:
         txt = resp.read().decode("utf-8")
@@ -38,38 +38,30 @@ def fetch_fred(series_id: str) -> pd.DataFrame:
 
 @st.cache_data
 def load_data() -> pd.DataFrame:
-    """
-    Fetch Housing Starts, Mortgage Rate, Home Price Index, merge them,
-    and rename columns for clarity.
-    """
     hs = fetch_fred("HOUST")
     mr = fetch_fred("MORTGAGE30US")
     hp = fetch_fred("CSUSHPISA")
 
-    # Save raw CSVs for inspection
     hs.to_csv(os.path.join(DATA_DIR, "housing_starts.csv"))
     mr.to_csv(os.path.join(DATA_DIR, "mortgage_rate.csv"))
     hp.to_csv(os.path.join(DATA_DIR, "home_price_index.csv"))
 
-    # Merge into one DataFrame
     df = hs.join([mr, hp], how="inner").dropna()
     df.columns = ["Housing Starts", "Mortgage Rate", "Home Price Index"]
     return df
 
-# ─── Load the data (this must come *after* the function above) ───────────────────
-df = load_data()  # ← line 22 in your file
+# ─── Load the data ────────────────────────────────────────────────────────────────
+df = load_data()
 
 # ─── Sidebar Controls ─────────────────────────────────────────────────────────────
 st.sidebar.header("⚙️ Controls")
 
-# 1) Date range
 start_date, end_date = st.sidebar.date_input(
     "Date Range",
     [df.index.min().date(), df.index.max().date()]
 )
 df = df.loc[start_date:end_date]
 
-# 2) Threshold multiplier
 threshold_mult = st.sidebar.slider(
     "Disruption Threshold = mean + σ ×",
     min_value=0.5,
@@ -78,7 +70,6 @@ threshold_mult = st.sidebar.slider(
     step=0.1
 )
 
-# 3) Series selector
 all_series = ["Housing Starts", "Mortgage Rate", "Home Price Index", "Pressure Index"]
 selected = st.sidebar.multiselect(
     "Series to Plot",
@@ -86,23 +77,21 @@ selected = st.sidebar.multiselect(
     default=all_series[:-1]
 )
 
-# ─── Compute Composite Pressure Index & Flags ─────────────────────────────────
+# ─── Compute Composite Pressure Index ──────────────────────────────────────────────
 z_hs = (df["Housing Starts"] - df["Housing Starts"].mean()) / df["Housing Starts"].std()
 z_mr = (df["Mortgage Rate"]  - df["Mortgage Rate"].mean())   / df["Mortgage Rate"].std()
 z_hp = (df["Home Price Index"] - df["Home Price Index"].mean()) / df["Home Price Index"].std()
 
-df["Pressure Index"]   = z_mr + z_hp - z_hs
+df["Pressure Index"] = z_mr + z_hp - z_hs
 threshold = df["Pressure Index"].mean() + threshold_mult * df["Pressure Index"].std()
-df["Disruption Flag"]  = df["Pressure Index"] > threshold
+df["Disruption Flag"] = df["Pressure Index"] > threshold
 
 # ─── Main Dashboard ───────────────────────────────────────────────────────────────
 st.title("🏠 Housing Disruption Radar")
 st.markdown(f"**Threshold** = mean + {threshold_mult:.1f} × σ → **{threshold:.2f}**")
 
-# Plot the selected series
 st.line_chart(df[selected])
 
-# Show flagged disruption events
 st.subheader("⚠️ Flagged Disruption Events")
 st.dataframe(
     df[df["Disruption Flag"]][selected + ["Disruption Flag"]]
@@ -110,6 +99,28 @@ st.dataframe(
 
 # ─── Regression Analysis ─────────────────────────────────────────────────────────
 st.subheader("📈 Regression: Housing Starts ~ Mortgage Rate + Home Price Index")
-X     = sm.add_constant(df[["Mortgage Rate","Home Price Index"]])
+X = sm.add_constant(df[["Mortgage Rate", "Home Price Index"]])
 model = sm.OLS(df["Housing Starts"], X).fit()
 st.text(model.summary().as_text())
+
+# ─── Forecasting ─────────────────────────────────────────────────────────────────
+st.subheader("🔮 Forecast Housing Starts")
+
+# Use only valid rows
+valid = df.dropna()
+X = valid[["Mortgage Rate", "Home Price Index"]]
+y = valid["Housing Starts"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+lr_model = LinearRegression()
+lr_model.fit(X_train, y_train)
+
+y_pred = lr_model.predict(X_test)
+rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+st.markdown(f"**Test RMSE:** {rmse:.2f}")
+
+# Predict next point using latest input
+latest_input = df[["Mortgage Rate", "Home Price Index"]].iloc[-1:]
+pred = lr_model.predict(latest_input)[0]
+st.markdown(f"**Forecasted Housing Starts (next period):** {pred:.0f}")
