@@ -1,6 +1,7 @@
-streamlit
 pandas
 numpy
-statsmodels
 matplotlib
+statsmodels
+scikit-learn
+streamlit
 certifi
